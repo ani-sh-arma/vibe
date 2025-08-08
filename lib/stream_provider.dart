@@ -5,8 +5,11 @@ class StreamProvider {
   final bool playable;
   final List<Audio>? audioFormats;
   final String statusMSG;
-  StreamProvider(
-      {required this.playable, this.audioFormats, this.statusMSG = ""});
+  StreamProvider({
+    required this.playable,
+    this.audioFormats,
+    this.statusMSG = "",
+  });
 
   static Future<StreamProvider> fetch(String videoId) async {
     final yt = YoutubeExplode();
@@ -14,31 +17,41 @@ class StreamProvider {
     try {
       final res = await yt.videos.streamsClient.getManifest(videoId);
       final audio = res.audioOnly;
+
+      // Get video metadata for duration
+      int videoDurationMs = 0;
+      try {
+        final video = await yt.videos.get(videoId);
+        videoDurationMs = video.duration?.inMilliseconds ?? 0;
+      } catch (e) {
+        // If we can't get video metadata, duration will remain 0
+      }
+
       return StreamProvider(
-          playable: true,
-          statusMSG: "OK",
-          audioFormats: audio
-              .map((e) => Audio(
-                  itag: e.tag,
-                  audioCodec:
-                      e.audioCodec.contains('mp') ? Codec.mp4a : Codec.opus,
-                  bitrate: e.bitrate.bitsPerSecond,
-                  duration: 0, // Not directly available from AudioOnlyStreamInfo
-                  loudnessDb: 0.0, // Not directly available from AudioOnlyStreamInfo
-                  url: e.url.toString(),
-                  size: e.size.totalBytes))
-              .toList());
+        playable: true,
+        statusMSG: "OK",
+        audioFormats:
+            audio
+                .map(
+                  (e) => Audio(
+                    itag: e.tag,
+                    audioCodec:
+                        e.audioCodec.contains('mp') ? Codec.mp4a : Codec.opus,
+                    bitrate: e.bitrate.bitsPerSecond,
+                    duration: videoDurationMs, // Use actual video duration
+                    loudnessDb:
+                        0.0, // Not directly available from AudioOnlyStreamInfo
+                    url: e.url.toString(),
+                    size: e.size.totalBytes,
+                  ),
+                )
+                .toList(),
+      );
     } catch (e) {
       if (e is SocketException) {
-        return StreamProvider(
-          playable: false,
-          statusMSG: "networkError",
-        );
+        return StreamProvider(playable: false, statusMSG: "networkError");
       } else if (e is VideoUnplayableException) {
-        return StreamProvider(
-          playable: false,
-          statusMSG: e.message,
-        );
+        return StreamProvider(playable: false, statusMSG: e.message);
       } else if (e is VideoRequiresPurchaseException) {
         return StreamProvider(
           playable: false,
@@ -50,10 +63,7 @@ class StreamProvider {
           statusMSG: "Song is unavailable",
         );
       } else if (e is YoutubeExplodeException) {
-        return StreamProvider(
-          playable: false,
-          statusMSG: e.message,
-        );
+        return StreamProvider(playable: false, statusMSG: e.message);
       } else {
         return StreamProvider(
           playable: false,
@@ -65,28 +75,32 @@ class StreamProvider {
     }
   }
 
-  Audio? get highestQualityAudio =>
-      audioFormats?.lastWhere((item) => item.itag == 251 || item.itag == 140,
-          orElse: () => audioFormats!.first);
+  Audio? get highestQualityAudio => audioFormats?.lastWhere(
+    (item) => item.itag == 251 || item.itag == 140,
+    orElse: () => audioFormats!.first,
+  );
 
-  Audio? get highestBitrateMp4aAudio =>
-      audioFormats?.lastWhere((item) => item.itag == 140 || item.itag == 139,
-          orElse: () => audioFormats!.first);
+  Audio? get highestBitrateMp4aAudio => audioFormats?.lastWhere(
+    (item) => item.itag == 140 || item.itag == 139,
+    orElse: () => audioFormats!.first,
+  );
 
-  Audio? get highestBitrateOpusAudio =>
-      audioFormats?.lastWhere((item) => item.itag == 251 || item.itag == 250,
-          orElse: () => audioFormats!.first);
+  Audio? get highestBitrateOpusAudio => audioFormats?.lastWhere(
+    (item) => item.itag == 251 || item.itag == 250,
+    orElse: () => audioFormats!.first,
+  );
 
-  Audio? get lowQualityAudio =>
-      audioFormats?.lastWhere((item) => item.itag == 249 || item.itag == 139,
-          orElse: () => audioFormats!.first);
+  Audio? get lowQualityAudio => audioFormats?.lastWhere(
+    (item) => item.itag == 249 || item.itag == 139,
+    orElse: () => audioFormats!.first,
+  );
 
   Map<String, dynamic> get hmStreamingData {
     return {
       "playable": playable,
       "statusMSG": statusMSG,
       "lowQualityAudio": lowQualityAudio?.toJson(),
-      "highQualityAudio": highestQualityAudio?.toJson()
+      "highQualityAudio": highestQualityAudio?.toJson(),
     };
   }
 }
@@ -99,35 +113,38 @@ class Audio {
   final int size;
   final double loudnessDb;
   final String url;
-  Audio(
-      {required this.itag,
-      required this.audioCodec,
-      required this.bitrate,
-      required this.duration,
-      required this.loudnessDb,
-      required this.url,
-      required this.size});
+  Audio({
+    required this.itag,
+    required this.audioCodec,
+    required this.bitrate,
+    required this.duration,
+    required this.loudnessDb,
+    required this.url,
+    required this.size,
+  });
 
   Map<String, dynamic> toJson() => {
-        "itag": itag,
-        "audioCodec": audioCodec.toString(),
-        "bitrate": bitrate,
-        "loudnessDb": loudnessDb,
-        "url": url,
-        "approxDurationMs": duration,
-        "size": size
-      };
+    "itag": itag,
+    "audioCodec": audioCodec.toString(),
+    "bitrate": bitrate,
+    "loudnessDb": loudnessDb,
+    "url": url,
+    "approxDurationMs": duration,
+    "size": size,
+  };
 
   factory Audio.fromJson(json) => Audio(
-      audioCodec: (json["audioCodec"] as String).contains("mp4a")
-          ? Codec.mp4a
-          : Codec.opus,
-      itag: json['itag'],
-      duration: json["approxDurationMs"] ?? 0,
-      bitrate: json["bitrate"] ?? 0,
-      loudnessDb: (json['loudnessDb'])?.toDouble() ?? 0.0,
-      url: json['url'],
-      size: json["size"] ?? 0);
+    audioCodec:
+        (json["audioCodec"] as String).contains("mp4a")
+            ? Codec.mp4a
+            : Codec.opus,
+    itag: json['itag'],
+    duration: json["approxDurationMs"] ?? 0,
+    bitrate: json["bitrate"] ?? 0,
+    loudnessDb: (json['loudnessDb'])?.toDouble() ?? 0.0,
+    url: json['url'],
+    size: json["size"] ?? 0,
+  );
 }
 
 enum Codec { mp4a, opus }
