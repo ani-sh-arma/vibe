@@ -5,10 +5,12 @@ class YouTubeMusicService {
 
   static const String domain = "https://music.youtube.com/";
   static const String baseUrl = '${domain}youtubei/v1/';
-  static const String fixedParams = '?prettyPrint=false&alt=json&key=AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30';
+  static const String fixedParams =
+      '?prettyPrint=false&alt=json&key=AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30';
 
   final Map<String, String> _headers = {
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+    'user-agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
     'accept': '*/*',
     'accept-encoding': 'gzip, deflate',
     'content-type': 'application/json',
@@ -22,11 +24,14 @@ class YouTubeMusicService {
         "clientName": "WEB_REMIX",
         "clientVersion": "1.20230213.01.00",
       },
-      'user': {}
-    }
+      'user': {},
+    },
   };
 
-  Future<Response> _sendRequest(String action, Map<dynamic, dynamic> data) async {
+  Future<Response> _sendRequest(
+    String action,
+    Map<dynamic, dynamic> data,
+  ) async {
     try {
       final response = await _dio.post(
         "$baseUrl$action$fixedParams",
@@ -45,10 +50,12 @@ class YouTubeMusicService {
     data['query'] = query;
 
     final response = await _sendRequest('search', data);
+    // print("Response : ${response.data}");
 
     // Parse search results (simplified)
-    final contents = response.data['contents']['tabbedSearchResultsRenderer']
-        ['tabs'][0]['tabRenderer']['content']['sectionListRenderer']['contents'];
+    final contents =
+        response
+            .data['contents']['tabbedSearchResultsRenderer']['tabs'][0]['tabRenderer']['content']['sectionListRenderer']['contents'];
 
     List<Map<String, dynamic>> songs = [];
 
@@ -73,23 +80,20 @@ class YouTubeMusicService {
       if (flexColumns == null || flexColumns.length < 2) return null;
 
       // Extract title
-      final titleRuns = flexColumns[0]['musicResponsiveListItemFlexColumnRenderer']
-          ['text']['runs'];
+      final titleRuns =
+          flexColumns[0]['musicResponsiveListItemFlexColumnRenderer']['text']['runs'];
       final title = titleRuns[0]['text'];
 
       // Extract artist
-      final artistRuns = flexColumns[1]['musicResponsiveListItemFlexColumnRenderer']
-          ['text']['runs'];
+      final artistRuns =
+          flexColumns[1]['musicResponsiveListItemFlexColumnRenderer']['text']['runs'];
       final artist = artistRuns.length > 0 ? artistRuns[0]['text'] : 'Unknown';
 
       // Extract video ID
-      final videoId = item['playNavigationEndpoint']?['watchEndpoint']?['videoId'];
+      // NEW
+      final videoId = item['playlistItemData']?['videoId'];
 
-      return {
-        'title': title,
-        'artist': artist,
-        'videoId': videoId,
-      };
+      return {'title': title, 'artist': artist, 'videoId': videoId};
     } catch (e) {
       return null;
     }
